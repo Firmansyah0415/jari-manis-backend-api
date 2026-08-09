@@ -18,6 +18,10 @@ class User extends Authenticatable
         'username',
         'password',
         'role',
+        'gender',
+        'sekolah_id',
+        'kelas_id',
+        'foto_profil',
     ];
 
     protected $hidden = [
@@ -30,5 +34,43 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
         ];
+    }
+
+    // Tambahkan relasi ini di bawah
+    public function preTest()
+    {
+        return $this->hasOne(PreTest::class);
+    }
+
+    public function recallMakanan()
+    {
+        return $this->hasMany(RecallMakanan::class);
+    }
+
+    public function aktivitasFisik()
+    {
+        return $this->hasMany(AktivitasFisik::class);
+    }
+
+    public function minumTtd()
+    {
+        return $this->hasMany(MinumTtd::class);
+    }
+
+    public function personalHygiene()
+    {
+        return $this->hasMany(PersonalHygiene::class);
+    }
+
+    public function sekolah()
+    {
+        // User (Siswa/Guru) 'dimiliki oleh' satu Sekolah
+        return $this->belongsTo(Sekolah::class, 'sekolah_id');
+    }
+
+    public function kelas()
+    {
+        // User (Siswa) 'dimiliki oleh' satu Kelas
+        return $this->belongsTo(Kelas::class, 'kelas_id');
     }
 }
