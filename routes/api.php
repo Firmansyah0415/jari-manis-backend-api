@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ENDPOINT MVP JARI MANIS (4 ZONA + PRE-TEST)
     Route::post('/pre-test', [ZonaController::class, 'storePreTest']);
+    Route::post('/post-test', [ZonaController::class, 'storePostTest']);
     Route::post('/recall-makanan', [ZonaController::class, 'storeRecallMakanan']);
     Route::post('/aktivitas-fisik', [ZonaController::class, 'storeAktivitasFisik']);
     Route::post('/minum-ttd', [ZonaController::class, 'storeMinumTtd']);

@@ -19,7 +19,6 @@ class GuruController extends Controller
         }
 
         // 3. Tarik semua user dengan role 'siswa' yang SEKOLAH-nya sama dengan guru tersebut
-        // Kita juga me-load relasi 'kelas' agar nanti bisa ditampilkan di UI Android
         $siswaList = User::where('role', 'siswa')
             ->where('sekolah_id', $guru->sekolah_id)
             ->with(['kelas']) // Bawa data nama kelasnya
@@ -32,7 +31,7 @@ class GuruController extends Controller
 
         return response()->json([
             'message' => 'Berhasil mengambil data siswa',
-            'data' => $siswaList->values() // .values() memastikan datanya berupa array JSON yang rapi
+            'data' => $siswaList->values()
         ], 200);
     }
 
@@ -43,6 +42,9 @@ class GuruController extends Controller
             return response()->json(['message' => 'Akses ditolak.'], 403);
         }
 
+        // --- TAMBAHAN BARU: Tangkap filter tanggal, default ke hari ini ---
+        $tanggal = $request->query('tanggal', date('Y-m-d'));
+
         // Cari data siswa berdasarkan ID
         $siswa = User::with(['kelas', 'sekolah'])->where('role', 'siswa')->find($id);
 
@@ -50,18 +52,23 @@ class GuruController extends Controller
             return response()->json(['message' => 'Siswa tidak ditemukan.'], 404);
         }
 
-        // Tarik data rapor milik siswa tersebut (sama persis dengan ZonaController)
-        $preTest = \App\Models\PreTest::where('user_id', $id)->latest()->first();
-        $recall = \App\Models\RecallMakanan::where('user_id', $id)->latest()->first();
-        $fisik = \App\Models\AktivitasFisik::where('user_id', $id)->latest()->first();
-        $ttd = \App\Models\MinumTtd::where('user_id', $id)->latest()->first();
-        $hygiene = \App\Models\PersonalHygiene::where('user_id', $id)->latest()->first();
+        // PRE-TEST & POST-TEST (Statis, karena hanya dikerjakan 1 kali)
+        $preTest = \App\Models\PreTest::where('user_id', $id)->first();
+        $postTest = \App\Models\PostTest::where('user_id', $id)->first(); // <--- BARU
+
+        // 4 ZONA HARIAN (Difilter berdasarkan tanggal yang dipilih Guru)
+        $recall = \App\Models\RecallMakanan::where('user_id', $id)->where('tanggal', $tanggal)->first();
+        $fisik = \App\Models\AktivitasFisik::where('user_id', $id)->where('tanggal', $tanggal)->first();
+        $ttd = \App\Models\MinumTtd::where('user_id', $id)->where('tanggal_minum', $tanggal)->first();
+        $hygiene = \App\Models\PersonalHygiene::where('user_id', $id)->where('tanggal', $tanggal)->first();
 
         return response()->json([
             'message' => 'Berhasil mengambil detail rapor siswa',
             'data' => [
                 'user' => $siswa,
+                'tanggal_filter' => $tanggal, // <--- BARU
                 'pre_test' => $preTest,
+                'post_test' => $postTest,     // <--- BARU
                 'recall_makanan' => $recall,
                 'aktivitas_fisik' => $fisik,
                 'minum_ttd' => $ttd,
@@ -85,40 +92,10 @@ class GuruController extends Controller
             ->with(['kelas'])
             ->get();
 
-        // 2. Hitung total skor untuk setiap siswa
-        $leaderboard = $siswaList->map(function ($siswa) {
-            $preTest = \App\Models\PreTest::where('user_id', $siswa->id)->latest()->first();
-            $recall = \App\Models\RecallMakanan::where('user_id', $siswa->id)->latest()->first();
-            $fisik = \App\Models\AktivitasFisik::where('user_id', $siswa->id)->latest()->first();
-            $ttd = \App\Models\MinumTtd::where('user_id', $siswa->id)->latest()->first();
-            $hygiene = \App\Models\PersonalHygiene::where('user_id', $siswa->id)->latest()->first();
-
-            // Karena Aktivitas Fisik tidak menyimpan 'skor_total', kita konversi dari Kategori
-            $skorFisik = 0;
-            if ($fisik) {
-                $skorFisik = match ($fisik->kategori) {
-                    'Sangat Baik' => 100,
-                    'Baik' => 80,
-                    'Cukup' => 60,
-                    'Kurang' => 40,
-                    default => 20,
-                };
-            }
-
-            // Jumlahkan seluruh skor
-            $totalSkor = ($preTest->skor ?? 0) +
-                ($recall->skor_total ?? 0) +
-                $skorFisik +
-                ($ttd->skor ?? 0) +
-                ($hygiene->skor_total ?? 0);
-
-            // Tambahkan properti 'total_skor' sementara ke object siswa
-            $siswa->total_skor = $totalSkor;
-            return $siswa;
-        });
-
-        // 3. Urutkan dari yang terbesar, tanpa batasan (semua siswa tampil)
-        $sortedSiswa = $leaderboard->sortByDesc('total_skor')->values();
+        // 2 & 3. Karena di User.php kita sudah membuat Accessor getTotalSkorAttribute,
+        // variabel 'total_skor' sudah OTOMATIS menempel di setiap data siswa!
+        // Kita cukup mengurutkannya saja dari yang terbesar ke terkecil. Sangat hemat kode!
+        $sortedSiswa = $siswaList->sortByDesc('total_skor')->values();
 
         return response()->json([
             'message' => 'Berhasil mengambil leaderboard',

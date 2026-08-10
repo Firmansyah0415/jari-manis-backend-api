@@ -17,6 +17,7 @@ return new class extends Migration
             $table->date('tanggal');
             $table->integer('durasi_menit'); // Durasi aktifitas fisik (Menit)[cite: 1]
             $table->string('kategori'); // Hasil konversi rentang menit (misal: 0 menit = Sangat Kurang)[cite: 1]
+            $table->integer('skor')->default(0); // Tambahkan baris ini
             $table->timestamps();
         });
     }

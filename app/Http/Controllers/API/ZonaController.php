@@ -24,16 +24,28 @@ class ZonaController extends Controller
         // Gunakan updateOrCreate agar siswa hanya punya 1 data Pre-Test
         $preTest = PreTest::updateOrCreate(
             ['user_id' => $request->user()->id],
-            [
-                'skor' => $request->skor,
-                'is_completed' => true
-            ]
+            ['skor' => $request->skor, 'is_completed' => true]
         );
 
         return response()->json([
             'message' => 'Data Pre-Test berhasil disimpan',
             'data' => $preTest
         ], 201);
+    }
+
+    // ==========================================
+    // 6. FITUR POST-TEST
+    // ==========================================
+    public function storePostTest(Request $request)
+    {
+        $request->validate(['skor' => 'required|integer']);
+
+        $postTest = \App\Models\PostTest::updateOrCreate(
+            ['user_id' => $request->user()->id],
+            ['skor' => $request->skor, 'is_completed' => true]
+        );
+
+        return response()->json(['message' => 'Data Post-Test berhasil disimpan', 'data' => $postTest], 201);
     }
 
     // ==========================================
@@ -82,12 +94,25 @@ class ZonaController extends Controller
         ]);
 
         $menit = $request->durasi_menit;
+        $skor = 0; // Inisialisasi variabel skor
 
-        if ($menit == 0) $kategori = 'Sangat Kurang';
-        elseif ($menit <= 29) $kategori = 'Kurang';
-        elseif ($menit <= 44) $kategori = 'Cukup';
-        elseif ($menit <= 59) $kategori = 'Baik';
-        else $kategori = 'Sangat Baik';
+        // Tentukan Kategori sekaligus Skor-nya (Skala 0-100)
+        if ($menit == 0) {
+            $kategori = 'Sangat Kurang';
+            $skor = 0;
+        } elseif ($menit <= 29) {
+            $kategori = 'Kurang';
+            $skor = 25;
+        } elseif ($menit <= 44) {
+            $kategori = 'Cukup';
+            $skor = 50;
+        } elseif ($menit <= 59) {
+            $kategori = 'Baik';
+            $skor = 75;
+        } else {
+            $kategori = 'Sangat Baik';
+            $skor = 100;
+        }
 
         // MENGGUNAKAN updateOrCreate
         $aktivitas = AktivitasFisik::updateOrCreate(
@@ -97,7 +122,8 @@ class ZonaController extends Controller
             ],
             [
                 'durasi_menit' => $menit,
-                'kategori' => $kategori
+                'kategori' => $kategori,
+                'skor' => $skor // <-- KODE BARU: Menyimpan skor ke database
             ]
         );
 
@@ -195,24 +221,33 @@ class ZonaController extends Controller
 
 
     /**
-     * Mengambil data akumulasi 4 Zona + Pre-Test milik pengguna yang sedang login
+     * Mengambil data akumulasi 4 Zona + Pre-Test & Post-Test milik pengguna
+     * Berdasarkan filter tanggal (Default: Hari ini)
      */
     public function getRapor(Request $request)
     {
         $userId = $request->user()->id;
 
-        // Mengambil entri terbaru dari setiap zona berdasarkan user_id
-        $preTest = \App\Models\PreTest::where('user_id', $userId)->latest()->first();
-        $recall = \App\Models\RecallMakanan::where('user_id', $userId)->latest()->first();
-        $fisik = \App\Models\AktivitasFisik::where('user_id', $userId)->latest()->first();
-        $ttd = \App\Models\MinumTtd::where('user_id', $userId)->latest()->first();
-        $hygiene = \App\Models\PersonalHygiene::where('user_id', $userId)->latest()->first();
+        // Menangkap request tanggal dari Android, jika kosong gunakan tanggal hari ini
+        $tanggal = $request->query('tanggal', date('Y-m-d'));
+
+        // PRE-TEST & POST-TEST (Hanya dikerjakan 1 kali, jadi tidak difilter berdasarkan tanggal)
+        $preTest = \App\Models\PreTest::where('user_id', $userId)->first();
+        $postTest = \App\Models\PostTest::where('user_id', $userId)->first();
+
+        // 4 ZONA HARIAN (Difilter secara ketat berdasarkan tanggal yang dipilih siswa)
+        $recall = \App\Models\RecallMakanan::where('user_id', $userId)->where('tanggal', $tanggal)->first();
+        $fisik = \App\Models\AktivitasFisik::where('user_id', $userId)->where('tanggal', $tanggal)->first();
+        $ttd = \App\Models\MinumTtd::where('user_id', $userId)->where('tanggal_minum', $tanggal)->first();
+        $hygiene = \App\Models\PersonalHygiene::where('user_id', $userId)->where('tanggal', $tanggal)->first();
 
         return response()->json([
             'message' => 'Berhasil mengambil data rapor kesehatanku',
             'data' => [
                 'user' => $request->user(),
+                'tanggal_filter' => $tanggal,
                 'pre_test' => $preTest,
+                'post_test' => $postTest,
                 'recall_makanan' => $recall,
                 'aktivitas_fisik' => $fisik,
                 'minum_ttd' => $ttd,
