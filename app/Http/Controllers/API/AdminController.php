@@ -115,17 +115,9 @@ class AdminController extends Controller
         $sekolahId = $request->query('sekolah_id');
         $kelasId = $request->query('kelas_id');
 
-        // Tarik data SEMUA SISWA beserta seluruh relasi skor zonanya
-        $query = User::with([
-            'sekolah',
-            'kelas',
-            'preTest',
-            'postTest',
-            'recallMakanan',
-            'aktivitasFisik',
-            'minumTtd',
-            'personalHygiene'
-        ])->where('role', 'siswa');
+        // Tarik data SISWA beserta sekolah & kelas
+        // Kita hapus relasi zona dari sini karena kita akan menghitungnya langsung dari database agar 100% akurat
+        $query = User::with(['sekolah', 'kelas'])->where('role', 'siswa');
 
         if ($sekolahId) $query->where('sekolah_id', $sekolahId);
         if ($kelasId) $query->where('kelas_id', $kelasId);
@@ -156,13 +148,14 @@ class AdminController extends Controller
             fputcsv($file, $columns); // Tulis baris pertama (Judul Kolom)
 
             foreach ($siswas as $siswa) {
-                // Kalkulasi manual masing-masing zona agar datanya pecah per kolom
-                $skorPreTest = $siswa->preTest ? $siswa->preTest->skor : 0;
-                $skorPostTest = $siswa->postTest ? $siswa->postTest->skor : 0;
-                $skorRecall = $siswa->recallMakanan->sum('skor_total');
-                $skorFisik = $siswa->aktivitasFisik->sum('skor');
-                $skorTtd = $siswa->minumTtd->sum('skor');
-                $skorHygiene = $siswa->personalHygiene->sum('skor_total');
+                // Kalkulasi menembak LANGSUNG ke Database agar dijamin 100% akurat dan update
+                $skorPreTest = \App\Models\PreTest::where('user_id', $siswa->id)->sum('skor');
+                $skorPostTest = \App\Models\PostTest::where('user_id', $siswa->id)->sum('skor');
+
+                $skorRecall = \App\Models\RecallMakanan::where('user_id', $siswa->id)->sum('skor_total');
+                $skorFisik = \App\Models\AktivitasFisik::where('user_id', $siswa->id)->sum('skor');
+                $skorTtd = \App\Models\MinumTtd::where('user_id', $siswa->id)->sum('skor');
+                $skorHygiene = \App\Models\PersonalHygiene::where('user_id', $siswa->id)->sum('skor_total');
 
                 // Susun data per baris sesuai urutan judul kolom
                 $row = [
@@ -177,16 +170,16 @@ class AdminController extends Controller
                     $skorTtd,
                     $skorHygiene,
                     $skorPostTest,
-                    $siswa->total_skor, // Memanggil accessor bawaan
-                    $siswa->total_hari_aktif, // Memanggil accessor bawaan
-                    $siswa->created_at->format('Y-m-d')
+                    $siswa->total_skor, // Memanggil accessor dari User.php
+                    $siswa->total_hari_aktif, // Memanggil accessor dari User.php
+                    $siswa->created_at->format('d/m/Y')
                 ];
                 fputcsv($file, $row); // Tulis baris data
             }
             fclose($file);
         };
 
-        // Header agar browser Android otomatis mendownloadnya sebagai file .csv
+        // Header agar file yang terdownload dikenali sebagai CSV
         $headers = [
             "Content-type"        => "text/csv",
             "Content-Disposition" => "attachment; filename=Data_Penelitian_JariManis.csv",
@@ -195,7 +188,6 @@ class AdminController extends Controller
             "Expires"             => "0"
         ];
 
-        // Kembalikan sebagai File Download
         return response()->stream($callback, 200, $headers);
     }
 }

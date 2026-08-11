@@ -13,7 +13,8 @@ class AktivitasFisik extends Model
         'user_id',
         'tanggal',
         'durasi_menit',
-        'kategori'
+        'kategori',
+        'skor'
     ];
 
     public function user()
