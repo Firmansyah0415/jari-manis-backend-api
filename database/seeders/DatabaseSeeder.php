@@ -2,24 +2,31 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Menyuntikkan akun Super Admin ke dalam database
+        // Kita gunakan updateOrCreate agar jika dijalankan 2x, tidak terjadi duplikat
+        User::updateOrCreate(
+            ['username' => env('ADMIN_USERNAME', 'admin')], // Username untuk login
+            [
+                'name' => 'Administrator Utama',
+                'password' => Hash::make(env('ADMIN_PASSWORD', 'admin123')), // Password standar (bisa Anda ganti)
+                'role' => 'admin',
+                'gender' => 'L',
+                'sekolah_id' => null, // Admin memantau semua sekolah, jadi tidak terikat pada 1 sekolah
+                'kelas_id' => null    // Admin tidak terikat kelas
+            ]
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        $this->command->info('Akun Super Admin berhasil dibuat!');
     }
 }

@@ -37,8 +37,9 @@ class GuruController extends Controller
 
     public function getSiswaRapor(Request $request, $id)
     {
-        // Pastikan hanya guru yang bisa akses
-        if ($request->user()->role !== 'guru') {
+        // Izinkan Guru ATAU Admin untuk melihat detail rapor siswa
+        $userRole = $request->user()->role;
+        if ($userRole !== 'guru' && $userRole !== 'admin') {
             return response()->json(['message' => 'Akses ditolak.'], 403);
         }
 

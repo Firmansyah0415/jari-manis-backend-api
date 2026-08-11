@@ -29,10 +29,18 @@ Route::middleware('auth:sanctum')->group(function () {
         return response()->json($request->user()->load(['sekolah', 'kelas']));
     });
     Route::post('/profil/update', [AuthController::class, 'updateProfil']);
+
     // Rute Khusus Guru
     Route::get('/guru/siswa', [\App\Http\Controllers\API\GuruController::class, 'getSiswaProgress']);
     Route::get('/guru/siswa/{id}/rapor', [\App\Http\Controllers\API\GuruController::class, 'getSiswaRapor']);
     Route::get('/guru/leaderboard', [\App\Http\Controllers\API\GuruController::class, 'getLeaderboard']);
+
+    // ==========================================
+    // AREA ADMIN (SUPER USER)
+    // ==========================================
+    Route::get('/admin/dashboard', [\App\Http\Controllers\Api\AdminController::class, 'getDashboardData']);
+    Route::get('/admin/users', [\App\Http\Controllers\Api\AdminController::class, 'getDaftarUser']);
+    Route::get('/admin/export-csv', [\App\Http\Controllers\Api\AdminController::class, 'exportCsv']);
 
     // ENDPOINT MVP JARI MANIS (4 ZONA + PRE-TEST)
     Route::post('/pre-test', [ZonaController::class, 'storePreTest']);

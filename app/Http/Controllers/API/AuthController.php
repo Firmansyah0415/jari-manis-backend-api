@@ -93,6 +93,7 @@ class AuthController extends Controller
         // Validasi data yang masuk
         $request->validate([
             'name' => 'nullable|string|max:255',
+            'username' => 'nullable|string|max:255',
             'password' => 'nullable|string|min:6',
             'foto_profil' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'gender' => 'nullable|in:L,P',
@@ -105,12 +106,17 @@ class AuthController extends Controller
             $user->name = $request->name;
         }
 
-        // 2. Update Password
+        // 2. Update Username
+        if ($request->filled('username')) {
+            $user->username = $request->username;
+        }
+
+        // 3. Update Password
         if ($request->filled('password')) {
             $user->password = \Illuminate\Support\Facades\Hash::make($request->password);
         }
 
-        // 3. Update Gender, Sekolah, dan Kelas
+        // 4. Update Gender, Sekolah, dan Kelas
         if ($request->filled('gender')) {
             $user->gender = $request->gender;
         }
@@ -121,7 +127,7 @@ class AuthController extends Controller
             $user->kelas_id = $request->kelas_id;
         }
 
-        // 4. Update Foto Profil
+        // 5. Update Foto Profil
         if ($request->hasFile('foto_profil')) {
             if ($user->foto_profil) {
                 \Illuminate\Support\Facades\Storage::delete('public/profil/' . $user->foto_profil);
