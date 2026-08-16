@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Artisan;
 
 Route::get('/', function () {
     return view('welcome');
@@ -25,5 +26,14 @@ Route::get('/fix-gambar', function () {
         return 'Sukses! Symlink profil berhasil dibuat. Silakan cek gambar Anda.';
     } catch (\Exception $e) {
         return 'Error: ' . $e->getMessage();
+    }
+});
+
+Route::get('/bersihkan-cache', function () {
+    try {
+        Artisan::call('optimize:clear');
+        return '🚀 BINGO! Seluruh Cache Server Berhasil Dihapus!';
+    } catch (\Exception $e) {
+        return '❌ Gagal: ' . $e->getMessage();
     }
 });
