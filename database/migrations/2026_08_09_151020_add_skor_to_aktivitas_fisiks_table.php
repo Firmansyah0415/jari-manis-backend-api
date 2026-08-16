@@ -9,12 +9,14 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
+    public function up()
     {
-        Schema::table('aktivitas_fisiks', function (Blueprint $table) {
-            // Menambahkan kolom skor setelah kolom kategori
-            $table->integer('skor')->default(0)->after('kategori');
-        });
+        // Cek dulu, kalau kolom 'skor' BELUM ada, baru buat.
+        if (!Schema::hasColumn('aktivitas_fisiks', 'skor')) {
+            Schema::table('aktivitas_fisiks', function (Blueprint $table) {
+                $table->integer('skor')->default(0)->after('kategori');
+            });
+        }
     }
 
     /**
