@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\API\AdminController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\ZonaController;
 use App\Http\Controllers\API\AkademikController;
+use App\Http\Controllers\API\GuruController;
 
 // ==========================================
 // JALUR PUBLIK (Siapapun bisa akses)
@@ -31,16 +33,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profil/update', [AuthController::class, 'updateProfil']);
 
     // Rute Khusus Guru
-    Route::get('/guru/siswa', [\App\Http\Controllers\API\GuruController::class, 'getSiswaProgress']);
-    Route::get('/guru/siswa/{id}/rapor', [\App\Http\Controllers\API\GuruController::class, 'getSiswaRapor']);
-    Route::get('/guru/leaderboard', [\App\Http\Controllers\API\GuruController::class, 'getLeaderboard']);
+    Route::get('/guru/siswa', [GuruController::class, 'getSiswaProgress']);
+    Route::get('/guru/siswa/{id}/rapor', [GuruController::class, 'getSiswaRapor']);
+    Route::get('/guru/leaderboard', [GuruController::class, 'getLeaderboard']);
 
     // ==========================================
     // AREA ADMIN (SUPER USER)
     // ==========================================
-    Route::get('/admin/dashboard', [\App\Http\Controllers\Api\AdminController::class, 'getDashboardData']);
-    Route::get('/admin/users', [\App\Http\Controllers\Api\AdminController::class, 'getDaftarUser']);
-    Route::get('/admin/export-csv', [\App\Http\Controllers\Api\AdminController::class, 'exportCsv']);
+    Route::get('/admin/dashboard', [AdminController::class, 'getDashboardData']);
+    Route::get('/admin/users', [AdminController::class, 'getDaftarUser']);
+    Route::get('/admin/export-csv', [AdminController::class, 'exportCsv']);
 
     // ENDPOINT MVP JARI MANIS (4 ZONA + PRE-TEST)
     Route::post('/pre-test', [ZonaController::class, 'storePreTest']);
