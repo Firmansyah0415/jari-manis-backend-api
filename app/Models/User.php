@@ -90,16 +90,13 @@ class User extends Authenticatable
             return 0;
         }
 
-        $skorPreTest = \App\Models\PreTest::where('user_id', $this->id)->sum('skor');
-        $skorRecall = \App\Models\RecallMakanan::where('user_id', $this->id)->sum('skor_total');
+        // KITA GUNAKAN RELASI YANG SUDAH ADA DI ATAS CLASS (Lebih Cepat & Aman di Server)
+        $skorPreTest = $this->preTest()->sum('skor');
+        $skorRecall = $this->recallMakanan()->sum('skor_total');
+        $skorFisik = $this->aktivitasFisik()->sum('skor');
+        $skorTtd = $this->minumTtd()->sum('skor');
+        $skorHygiene = $this->personalHygiene()->sum('skor_total');
 
-        // --- KODE BARU: Mengambil skor dari Aktivitas Fisik ---
-        $skorFisik = \App\Models\AktivitasFisik::where('user_id', $this->id)->sum('skor');
-
-        $skorTtd = \App\Models\MinumTtd::where('user_id', $this->id)->sum('skor');
-        $skorHygiene = \App\Models\PersonalHygiene::where('user_id', $this->id)->sum('skor_total');
-
-        // Kembalikan total akumulasi kelima skor
         return $skorPreTest + $skorRecall + $skorFisik + $skorTtd + $skorHygiene;
     }
 
@@ -107,17 +104,13 @@ class User extends Authenticatable
     {
         if ($this->role !== 'siswa') return 0;
 
-        // Kita gunakan tabel 'recall_makanan' sebagai patokan (karena wajib diisi).
-        // Menghitung jumlah tanggal yang berbeda (unik) untuk mengetahui berapa hari siswa sudah aktif.
-        return \App\Models\RecallMakanan::where('user_id', $this->id)->distinct('tanggal')->count('tanggal');
+        return $this->recallMakanan()->distinct('tanggal')->count('tanggal');
     }
 
-    // FUNGSI BARU: Mengecek apakah siswa sudah mengerjakan Post-Test
     public function getIsPostTestDoneAttribute()
     {
         if ($this->role !== 'siswa') return false;
 
-        // Mengembalikan nilai true jika ada data, false jika tidak ada
-        return \App\Models\PostTest::where('user_id', $this->id)->exists();
+        return $this->postTest()->exists();
     }
 }
