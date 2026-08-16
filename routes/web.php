@@ -6,7 +6,24 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/generate-symlink', function () {
-    \Illuminate\Support\Facades\Artisan::call('storage:link');
-    return 'Symlink berhasil dibuat!';
+Route::get('/fix-gambar', function () {
+    $target = storage_path('app/public/profil');
+
+
+    $link = $_SERVER['DOCUMENT_ROOT'] . '/profil';
+
+    if (!file_exists($target)) {
+        return 'Folder target di storage belum ada. Pastikan sudah ada gambar yang terupload ke sistem.';
+    }
+
+    if (file_exists($link)) {
+        return 'Gagal: Folder "profil" sudah ada di root. Hapus dulu via File Manager.';
+    }
+
+    try {
+        symlink($target, $link);
+        return 'Sukses! Symlink profil berhasil dibuat. Silakan cek gambar Anda.';
+    } catch (\Exception $e) {
+        return 'Error: ' . $e->getMessage();
+    }
 });
