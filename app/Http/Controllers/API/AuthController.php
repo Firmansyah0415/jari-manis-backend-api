@@ -130,7 +130,7 @@ class AuthController extends Controller
         // 5. Update Foto Profil
         if ($request->hasFile('foto_profil')) {
             if ($user->foto_profil) {
-                \Illuminate\Support\Facades\Storage::delete('public/profil/' . $user->foto_profil);
+                \Illuminate\Support\Facades\Storage::disk('public')->delete('profil/' . $user->foto_profil);
             }
             $fileName = time() . '_' . $request->file('foto_profil')->getClientOriginalName();
             $request->file('foto_profil')->storeAs('profil', $fileName, 'public');
