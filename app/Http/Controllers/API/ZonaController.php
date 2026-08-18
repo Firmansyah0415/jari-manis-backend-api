@@ -383,28 +383,31 @@ class ZonaController extends Controller
     {
         $user = $request->user();
 
-        // Menangkap parameter filter dari Android (jika ada) -> contoh: ?sekolah_id=1&kelas_id=2
+        // Menangkap parameter filter
         $sekolahId = $request->query('sekolah_id');
         $kelasId = $request->query('kelas_id');
+        // Fitur Baru: 'lingkup' untuk mengatur scope siswa (default: 'sekolah')
+        $lingkup = $request->query('lingkup', 'sekolah');
 
         $query = \App\Models\User::where('role', 'siswa')
             ->withSum('aktivitasFisik as total_skor_fisik', 'skor')
             ->withSum('aktivitasFisik as total_menit_fisik', 'durasi_menit');
 
-        // --- LOGIKA PEMBATASAN DATA BERDASARKAN ROLE (AUTHORIZATION) ---
+        // --- LOGIKA PEMBATASAN DATA BERDASARKAN ROLE ---
         if ($user->role === 'siswa') {
-            // Siswa HANYA bisa melihat teman-teman di SEKOLAH dan KELAS-nya sendiri
-            $query->where('sekolah_id', $user->sekolah_id)
-                ->where('kelas_id', $user->kelas_id);
-        } elseif ($user->role === 'guru') {
-            // Guru HANYA bisa melihat siswa di SEKOLAH-nya sendiri
+            // Siswa SELALU HANYA BISA melihat sekolahnya sendiri
             $query->where('sekolah_id', $user->sekolah_id);
-            // Guru bisa memfilter untuk melihat kelas tertentu
+
+            // Jika siswa menekan tombol filter "Kelasku" di Android
+            if ($lingkup === 'kelas') {
+                $query->where('kelas_id', $user->kelas_id);
+            }
+        } elseif ($user->role === 'guru') {
+            $query->where('sekolah_id', $user->sekolah_id);
             if ($kelasId) {
                 $query->where('kelas_id', $kelasId);
             }
         } elseif ($user->role === 'admin') {
-            // Admin bebas melihat semua, tapi jika melempar filter, kita terapkan
             if ($sekolahId) {
                 $query->where('sekolah_id', $sekolahId);
             }
@@ -413,20 +416,20 @@ class ZonaController extends Controller
             }
         }
 
-        // Eksekusi pengurutan dari database
+        // Eksekusi pengurutan
         $leaderboard = $query->orderByDesc('total_skor_fisik')
             ->orderByDesc('total_menit_fisik')
             ->get();
 
-        // Filter: Buang siswa yang belum pernah olahraga sama sekali (skor null atau 0)
+        // Filter: Buang siswa yang skornya 0
         $filteredData = $leaderboard->filter(function ($siswa) {
             return (int) $siswa->total_skor_fisik > 0;
-        })->values(); // values() berguna untuk mereset urutan index array
+        })->values();
 
-        // Mapping data agar rapi dan memberikan peringkat yang urut
+        // Mapping data
         $finalData = $filteredData->map(function ($siswa, $index) {
             return [
-                'peringkat' => $index + 1, // Otomatis ranking 1, 2, 3...
+                'peringkat' => $index + 1,
                 'id' => $siswa->id,
                 'nama' => $siswa->name,
                 'kelas' => $siswa->kelas ? $siswa->kelas->nama_kelas : '-',
