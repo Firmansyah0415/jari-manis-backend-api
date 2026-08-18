@@ -381,47 +381,64 @@ class ZonaController extends Controller
     // ==========================================
     public function getLeaderboardAktivitasFisik(Request $request)
     {
-        // 1. Ambil semua User dengan Role 'siswa' (karena guru/admin tidak ikut lomba)
-        // 2. Gunakan withSum untuk menjumlahkan seluruh kolom 'skor' dan 'durasi_menit'
-        //    dari relasi 'aktivitasFisik' milik masing-masing siswa.
-        $leaderboard = \App\Models\User::where('role', 'siswa')
+        $user = $request->user();
+
+        // Menangkap parameter filter dari Android (jika ada) -> contoh: ?sekolah_id=1&kelas_id=2
+        $sekolahId = $request->query('sekolah_id');
+        $kelasId = $request->query('kelas_id');
+
+        $query = \App\Models\User::where('role', 'siswa')
             ->withSum('aktivitasFisik as total_skor_fisik', 'skor')
-            ->withSum('aktivitasFisik as total_menit_fisik', 'durasi_menit')
+            ->withSum('aktivitasFisik as total_menit_fisik', 'durasi_menit');
 
-            // Urutan 1: Siapa yang total skornya paling tinggi (Skala 100 per hari)
-            ->orderByDesc('total_skor_fisik')
+        // --- LOGIKA PEMBATASAN DATA BERDASARKAN ROLE (AUTHORIZATION) ---
+        if ($user->role === 'siswa') {
+            // Siswa HANYA bisa melihat teman-teman di SEKOLAH dan KELAS-nya sendiri
+            $query->where('sekolah_id', $user->sekolah_id)
+                ->where('kelas_id', $user->kelas_id);
+        } elseif ($user->role === 'guru') {
+            // Guru HANYA bisa melihat siswa di SEKOLAH-nya sendiri
+            $query->where('sekolah_id', $user->sekolah_id);
+            // Guru bisa memfilter untuk melihat kelas tertentu
+            if ($kelasId) {
+                $query->where('kelas_id', $kelasId);
+            }
+        } elseif ($user->role === 'admin') {
+            // Admin bebas melihat semua, tapi jika melempar filter, kita terapkan
+            if ($sekolahId) {
+                $query->where('sekolah_id', $sekolahId);
+            }
+            if ($kelasId) {
+                $query->where('kelas_id', $kelasId);
+            }
+        }
 
-            // Urutan 2: Jika skornya kembar/seri, siapa yang durasi menitnya paling lama
+        // Eksekusi pengurutan dari database
+        $leaderboard = $query->orderByDesc('total_skor_fisik')
             ->orderByDesc('total_menit_fisik')
-
             ->get();
 
-        // 3. Mapping data agar rapi saat dikirim ke Android
-        // Kita hanya mengirim data yang dibutuhkan (nama, kelas, skor, menit, dan foto)
-        $mappedData = $leaderboard->map(function ($siswa, $index) {
+        // Filter: Buang siswa yang belum pernah olahraga sama sekali (skor null atau 0)
+        $filteredData = $leaderboard->filter(function ($siswa) {
+            return (int) $siswa->total_skor_fisik > 0;
+        })->values(); // values() berguna untuk mereset urutan index array
+
+        // Mapping data agar rapi dan memberikan peringkat yang urut
+        $finalData = $filteredData->map(function ($siswa, $index) {
             return [
-                'peringkat' => $index + 1, // Otomatis membuat ranking 1, 2, 3, dst.
+                'peringkat' => $index + 1, // Otomatis ranking 1, 2, 3...
                 'id' => $siswa->id,
                 'nama' => $siswa->name,
                 'kelas' => $siswa->kelas ? $siswa->kelas->nama_kelas : '-',
                 'foto_profil' => $siswa->foto_profil,
-
-                // Jika siswa belum pernah olahraga sama sekali, hasilnya akan null dari database.
-                // Kita ubah null tersebut menjadi angka 0 agar tidak error di Android.
-                'total_skor' => (int) $siswa->total_skor_fisik ?: 0,
-                'total_menit' => (int) $siswa->total_menit_fisik ?: 0,
+                'total_skor' => (int) $siswa->total_skor_fisik,
+                'total_menit' => (int) $siswa->total_menit_fisik,
             ];
         });
 
-        // 4. Filter Opsional: Jika ingin hanya menampilkan yang skornya > 0
-        // (Siswa yang malas olahraga dan nilainya 0 tidak akan masuk leaderboard)
-        $filteredData = $mappedData->filter(function ($item) {
-            return $item['total_skor'] > 0;
-        })->values(); // Reset ulang index array
-
         return response()->json([
             'message' => 'Berhasil memuat Leaderboard Aktivitas Fisik',
-            'data' => $filteredData
+            'data' => $finalData
         ], 200);
     }
 }
