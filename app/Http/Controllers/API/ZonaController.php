@@ -375,4 +375,53 @@ class ZonaController extends Controller
 
         return response()->json(['message' => 'Data Tes Kebugaran (' . strtoupper($request->tipe_tes) . ') berhasil disimpan', 'data' => $tes], 201);
     }
+
+    // ==========================================
+    // FITUR BARU: LEADERBOARD AKTIVITAS FISIK
+    // ==========================================
+    public function getLeaderboardAktivitasFisik(Request $request)
+    {
+        // 1. Ambil semua User dengan Role 'siswa' (karena guru/admin tidak ikut lomba)
+        // 2. Gunakan withSum untuk menjumlahkan seluruh kolom 'skor' dan 'durasi_menit'
+        //    dari relasi 'aktivitasFisik' milik masing-masing siswa.
+        $leaderboard = \App\Models\User::where('role', 'siswa')
+            ->withSum('aktivitasFisik as total_skor_fisik', 'skor')
+            ->withSum('aktivitasFisik as total_menit_fisik', 'durasi_menit')
+
+            // Urutan 1: Siapa yang total skornya paling tinggi (Skala 100 per hari)
+            ->orderByDesc('total_skor_fisik')
+
+            // Urutan 2: Jika skornya kembar/seri, siapa yang durasi menitnya paling lama
+            ->orderByDesc('total_menit_fisik')
+
+            ->get();
+
+        // 3. Mapping data agar rapi saat dikirim ke Android
+        // Kita hanya mengirim data yang dibutuhkan (nama, kelas, skor, menit, dan foto)
+        $mappedData = $leaderboard->map(function ($siswa, $index) {
+            return [
+                'peringkat' => $index + 1, // Otomatis membuat ranking 1, 2, 3, dst.
+                'id' => $siswa->id,
+                'nama' => $siswa->name,
+                'kelas' => $siswa->kelas ? $siswa->kelas->nama_kelas : '-',
+                'foto_profil' => $siswa->foto_profil,
+
+                // Jika siswa belum pernah olahraga sama sekali, hasilnya akan null dari database.
+                // Kita ubah null tersebut menjadi angka 0 agar tidak error di Android.
+                'total_skor' => (int) $siswa->total_skor_fisik ?: 0,
+                'total_menit' => (int) $siswa->total_menit_fisik ?: 0,
+            ];
+        });
+
+        // 4. Filter Opsional: Jika ingin hanya menampilkan yang skornya > 0
+        // (Siswa yang malas olahraga dan nilainya 0 tidak akan masuk leaderboard)
+        $filteredData = $mappedData->filter(function ($item) {
+            return $item['total_skor'] > 0;
+        })->values(); // Reset ulang index array
+
+        return response()->json([
+            'message' => 'Berhasil memuat Leaderboard Aktivitas Fisik',
+            'data' => $filteredData
+        ], 200);
+    }
 }

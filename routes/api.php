@@ -52,6 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/aktivitas-fisik', [ZonaController::class, 'storeAktivitasFisik']);
     Route::post('/minum-ttd', [ZonaController::class, 'storeMinumTtd']);
     Route::post('/personal-hygiene', [ZonaController::class, 'storePersonalHygiene']);
+    Route::get('/leaderboard-fisik', [ZonaController::class, 'getLeaderboardAktivitasFisik']);
 
     // RUTE BARU: Mengambil Data Rapor Kesehatanku
     Route::get('/rapor', [ZonaController::class, 'getRapor']);
