@@ -90,6 +90,7 @@ class ZonaController extends Controller
     {
         $request->validate([
             'tanggal' => 'required|date',
+            'nama_aktivitas' => 'required|string',
             'durasi_menit' => 'required|integer'
         ]);
 
@@ -121,6 +122,7 @@ class ZonaController extends Controller
                 'tanggal' => $request->tanggal
             ],
             [
+                'nama_aktivitas' => $request->nama_aktivitas,
                 'durasi_menit' => $menit,
                 'kategori' => $kategori,
                 'skor' => $skor // <-- KODE BARU: Menyimpan skor ke database
@@ -254,5 +256,123 @@ class ZonaController extends Controller
                 'personal_hygiene' => $hygiene
             ]
         ], 200);
+    }
+
+
+    // ==========================================
+    // FITUR BARU: TES KEBUGARAN (PRE & POST)
+    // ==========================================
+    public function storeTesKebugaran(Request $request)
+    {
+        $request->validate([
+            'tipe_tes' => 'required|in:pre,post',
+            'lari_12_menit' => 'nullable|numeric',
+            'push_up' => 'nullable|integer',
+            'sit_up' => 'nullable|integer',
+            'pull_up_chining' => 'nullable|integer',
+            'shuttle_run' => 'nullable|numeric',
+        ]);
+
+        $user = $request->user();
+        $gender = $user->gender; // 'L' atau 'P'
+
+        // 1. Ambil nilai inputan (Jika kosong, anggap 0. Khusus Lari Shuttle, jika kosong anggap 999 detik alias sangat lambat)
+        $lari = $request->lari_12_menit ?: 0;
+        $push = $request->push_up ?: 0;
+        $sit = $request->sit_up ?: 0;
+        $pull = $request->pull_up_chining ?: 0;
+        $shuttle = $request->shuttle_run ?: 999;
+
+        // Inisialisasi Poin Dasar
+        $pLari = 1;
+        $pPush = 1;
+        $pSit = 1;
+        $pPull = 1;
+        $pShuttle = 1;
+
+        // 2. LOGIKA PENILAIAN LAKI-LAKI
+        if ($gender == 'L') {
+            // Lari
+            if ($lari > 2800) $pLari = 5;
+            elseif ($lari >= 2400) $pLari = 4;
+            elseif ($lari >= 2000) $pLari = 3;
+            elseif ($lari >= 1600) $pLari = 2;
+            // Push-up & Sit-up
+            if ($push > 40) $pPush = 5;
+            elseif ($push >= 30) $pPush = 4;
+            elseif ($push >= 20) $pPush = 3;
+            elseif ($push >= 10) $pPush = 2;
+            if ($sit > 40) $pSit = 5;
+            elseif ($sit >= 30) $pSit = 4;
+            elseif ($sit >= 20) $pSit = 3;
+            elseif ($sit >= 10) $pSit = 2;
+            // Pull-up
+            if ($pull > 12) $pPull = 5;
+            elseif ($pull >= 9) $pPull = 4;
+            elseif ($pull >= 5) $pPull = 3;
+            elseif ($pull >= 2) $pPull = 2;
+            // Shuttle Run (Makin kecil makin bagus)
+            if ($shuttle < 16) $pShuttle = 5;
+            elseif ($shuttle <= 18) $pShuttle = 4;
+            elseif ($shuttle <= 20) $pShuttle = 3;
+            elseif ($shuttle <= 22) $pShuttle = 2;
+        }
+        // 3. LOGIKA PENILAIAN PEREMPUAN
+        else {
+            // Lari
+            if ($lari > 2400) $pLari = 5;
+            elseif ($lari >= 2000) $pLari = 4;
+            elseif ($lari >= 1600) $pLari = 3;
+            elseif ($lari >= 1200) $pLari = 2;
+            // Push-up & Sit-up
+            if ($push > 30) $pPush = 5;
+            elseif ($push >= 20) $pPush = 4;
+            elseif ($push >= 10) $pPush = 3;
+            elseif ($push >= 5) $pPush = 2;
+            if ($sit > 30) $pSit = 5;
+            elseif ($sit >= 20) $pSit = 4;
+            elseif ($sit >= 10) $pSit = 3;
+            elseif ($sit >= 5) $pSit = 2;
+            // Chining (Detik)
+            if ($pull > 40) $pPull = 5;
+            elseif ($pull >= 20) $pPull = 4;
+            elseif ($pull >= 8) $pPull = 3;
+            elseif ($pull >= 2) $pPull = 2;
+            // Shuttle Run
+            if ($shuttle < 18) $pShuttle = 5;
+            elseif ($shuttle <= 20) $pShuttle = 4;
+            elseif ($shuttle <= 22) $pShuttle = 3;
+            elseif ($shuttle <= 24) $pShuttle = 2;
+        }
+
+        // 4. HITUNG SKOR TOTAL (Skala 100)
+        $totalPoin = $pLari + $pPush + $pSit + $pPull + $pShuttle;
+        $skorTotal = round(($totalPoin / 25) * 100);
+
+        // 5. TENTUKAN KATEGORI
+        if ($skorTotal > 80) $kategori = 'Sangat Baik';
+        elseif ($skorTotal > 60) $kategori = 'Baik';
+        elseif ($skorTotal > 40) $kategori = 'Cukup';
+        elseif ($skorTotal > 20) $kategori = 'Kurang';
+        else $kategori = 'Sangat Kurang';
+
+        // 6. SIMPAN KE DATABASE (Tabel `tes_kebugarans`)
+        $tes = \App\Models\TesKebugaran::updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'tipe_tes' => $request->tipe_tes // 'pre' atau 'post'
+            ],
+            [
+                'lari_12_menit' => $request->lari_12_menit,
+                'push_up' => $request->push_up,
+                'sit_up' => $request->sit_up,
+                'pull_up_chining' => $request->pull_up_chining,
+                'shuttle_run' => $request->shuttle_run,
+                'skor_total' => $skorTotal,
+                'kategori' => $kategori
+            ]
+        );
+
+        return response()->json(['message' => 'Data Tes Kebugaran (' . strtoupper($request->tipe_tes) . ') berhasil disimpan', 'data' => $tes], 201);
     }
 }

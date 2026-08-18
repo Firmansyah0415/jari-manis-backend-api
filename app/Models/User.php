@@ -68,6 +68,11 @@ class User extends Authenticatable
         return $this->hasMany(PersonalHygiene::class);
     }
 
+    public function tesKebugaran()
+    {
+        return $this->hasMany(TesKebugaran::class);
+    }
+
     public function sekolah()
     {
         // User (Siswa/Guru) 'dimiliki oleh' satu Sekolah
