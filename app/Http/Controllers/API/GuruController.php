@@ -55,7 +55,11 @@ class GuruController extends Controller
 
         // PRE-TEST & POST-TEST (Statis, karena hanya dikerjakan 1 kali)
         $preTest = \App\Models\PreTest::where('user_id', $id)->first();
-        $postTest = \App\Models\PostTest::where('user_id', $id)->first(); // <--- BARU
+        $postTest = \App\Models\PostTest::where('user_id', $id)->first();
+
+        // --- PERBAIKAN: TARIK DATA KEBUGARAN DARI DATABASE ---
+        $preTestKebugaran = \App\Models\TesKebugaran::where('user_id', $id)->where('tipe_tes', 'pre')->first();
+        $postTestKebugaran = \App\Models\TesKebugaran::where('user_id', $id)->where('tipe_tes', 'post')->first();
 
         // 4 ZONA HARIAN (Difilter berdasarkan tanggal yang dipilih Guru)
         $recall = \App\Models\RecallMakanan::where('user_id', $id)->where('tanggal', $tanggal)->first();
@@ -70,6 +74,11 @@ class GuruController extends Controller
                 'tanggal_filter' => $tanggal,
                 'pre_test' => $preTest,
                 'post_test' => $postTest,
+
+                // --- PERBAIKAN: KIRIMKAN DATA KEBUGARAN KE ANDROID ---
+                'pre_test_kebugaran' => $preTestKebugaran,
+                'post_test_kebugaran' => $postTestKebugaran,
+
                 'recall_makanan' => $recall,
                 'aktivitas_fisik' => $fisik,
                 'minum_ttd' => $ttd,

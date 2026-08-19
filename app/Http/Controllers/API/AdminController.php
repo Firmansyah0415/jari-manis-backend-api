@@ -87,8 +87,8 @@ class AdminController extends Controller
             return response()->json(['message' => 'Akses ditolak.'], 403);
         }
 
-        $tipe = $request->query('tipe', 'induk'); // Default: induk
-        $tanggal = $request->query('tanggal'); // Format: YYYY-MM-DD
+        $tipe = $request->query('tipe', 'induk');
+        $tanggal = $request->query('tanggal');
 
         $query = User::with(['sekolah', 'kelas'])->where('role', 'siswa');
         $siswas = $query->get();
@@ -121,8 +121,8 @@ class AdminController extends Controller
                     $preAkad = \App\Models\PreTest::where('user_id', $siswa->id)->sum('skor');
                     $postAkad = \App\Models\PostTest::where('user_id', $siswa->id)->sum('skor');
 
-                    $preBugar = \App\Models\TesKebugaran::where('user_id', $siswa->id)->where('kategori', 'pre_test')->first();
-                    $postBugar = \App\Models\TesKebugaran::where('user_id', $siswa->id)->where('kategori', 'post_test')->first();
+                    $preBugar = \App\Models\TesKebugaran::where('user_id', $siswa->id)->where('tipe_tes', 'pre')->first();
+                    $postBugar = \App\Models\TesKebugaran::where('user_id', $siswa->id)->where('tipe_tes', 'post')->first();
 
                     fputcsv($file, [
                         $siswa->id,
