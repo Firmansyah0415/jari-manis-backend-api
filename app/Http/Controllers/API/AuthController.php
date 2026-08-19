@@ -13,23 +13,23 @@ class AuthController extends Controller
     // --- FITUR REGISTER ---
     public function register(Request $request)
     {
-        // Gunakan Validator::make agar kita bisa mengontrol format pesan error
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'username' => 'required|string|max:255|unique:users',
-            'password' => 'required|string|min:8', // <-- DIUBAH MENJADI MINIMAL 8
+            // regex:/^\S*$/u = Memastikan tidak ada spasi sama sekali
+            'username' => ['required', 'string', 'max:255', 'unique:users', 'regex:/^\S*$/u'],
+            'password' => 'required|string|min:8',
             'role' => 'required|in:siswa,guru,admin',
             'gender' => 'required|in:L,P',
             'sekolah_id' => 'nullable|exists:sekolahs,id',
             'kelas_id' => 'nullable|exists:kelas,id'
         ], [
-            // Kustomisasi pesan error ke Bahasa Indonesia
-            'username.unique' => 'Username ini sudah dipakai, silakan cari yang lain.',
-            'password.min' => 'Password terlalu pendek! Minimal harus 8 karakter.'
+            // Kustomisasi pesan error ke standar Anda
+            'username.unique' => 'Username ini sudah digunakan, silakan pilih username lain.',
+            'username.regex' => 'Username tidak boleh mengandung spasi.',
+            'password.min' => 'Password minimal harus terdiri dari 8 karakter.'
         ]);
 
         if ($validator->fails()) {
-            // Mengirim HANYA kalimat error pertama agar Android mudah membacanya
             return response()->json([
                 'message' => $validator->errors()->first()
             ], 400);
@@ -63,15 +63,22 @@ class AuthController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['message' => 'Kolom Username dan Password wajib diisi!'], 400);
+            return response()->json(['message' => 'Username dan password tidak boleh kosong.'], 400);
         }
 
         $user = User::where('username', $request->username)->first();
 
-        // Pesan Error Jika Salah Password/Username
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        // Error 1: Akun Tidak Ditemukan
+        if (!$user) {
             return response()->json([
-                'message' => 'Username tidak ditemukan atau Password salah!'
+                'message' => 'Akun dengan username tersebut tidak terdaftar.'
+            ], 404);
+        }
+
+        // Error 2: Kredensial Salah
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Username atau password yang Anda masukkan salah.'
             ], 401);
         }
 
