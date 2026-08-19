@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\PreTest;
+use App\Models\PostTest;
 use App\Models\RecallMakanan;
 use App\Models\AktivitasFisik;
 use App\Models\MinumTtd;
@@ -234,15 +235,20 @@ class ZonaController extends Controller
         // Menangkap request tanggal dari Android, jika kosong gunakan tanggal hari ini
         $tanggal = $request->query('tanggal', date('Y-m-d'));
 
-        // PRE-TEST & POST-TEST (Hanya dikerjakan 1 kali, jadi tidak difilter berdasarkan tanggal)
-        $preTest = \App\Models\PreTest::where('user_id', $userId)->first();
-        $postTest = \App\Models\PostTest::where('user_id', $userId)->first();
+        // PRE-TEST & POST-TEST PENGETAHUAN (Hanya dikerjakan 1 kali, jadi tidak difilter berdasarkan tanggal)
+        $preTest = PreTest::where('user_id', $userId)->first();
+        $postTest = PostTest::where('user_id', $userId)->first();
+
+        // --- TAMBAHAN BARU: PRE-TEST & POST-TEST KEBUGARAN ---
+        // (Sama seperti pengetahuan, tidak difilter tanggal agar selalu tampil di rapor)
+        $preTestKebugaran = TesKebugaran::where('user_id', $userId)->where('tipe_tes', 'pre')->first();
+        $postTestKebugaran = TesKebugaran::where('user_id', $userId)->where('tipe_tes', 'post')->first();
 
         // 4 ZONA HARIAN (Difilter secara ketat berdasarkan tanggal yang dipilih siswa)
-        $recall = \App\Models\RecallMakanan::where('user_id', $userId)->where('tanggal', $tanggal)->first();
-        $fisik = \App\Models\AktivitasFisik::where('user_id', $userId)->where('tanggal', $tanggal)->first();
-        $ttd = \App\Models\MinumTtd::where('user_id', $userId)->where('tanggal_minum', $tanggal)->first();
-        $hygiene = \App\Models\PersonalHygiene::where('user_id', $userId)->where('tanggal', $tanggal)->first();
+        $recall = RecallMakanan::where('user_id', $userId)->where('tanggal', $tanggal)->first();
+        $fisik = AktivitasFisik::where('user_id', $userId)->where('tanggal', $tanggal)->first();
+        $ttd = MinumTtd::where('user_id', $userId)->where('tanggal_minum', $tanggal)->first();
+        $hygiene = PersonalHygiene::where('user_id', $userId)->where('tanggal', $tanggal)->first();
 
         return response()->json([
             'message' => 'Berhasil mengambil data rapor kesehatanku',
@@ -251,6 +257,8 @@ class ZonaController extends Controller
                 'tanggal_filter' => $tanggal,
                 'pre_test' => $preTest,
                 'post_test' => $postTest,
+                'pre_test_kebugaran' => $preTestKebugaran,
+                'post_test_kebugaran' => $postTestKebugaran,
                 'recall_makanan' => $recall,
                 'aktivitas_fisik' => $fisik,
                 'minum_ttd' => $ttd,

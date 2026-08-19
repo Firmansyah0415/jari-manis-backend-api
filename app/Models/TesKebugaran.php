@@ -12,6 +12,7 @@ class TesKebugaran extends Model
     protected $fillable = [
         'user_id',
         'tipe_tes',
+        'tanggal',
         'lari_12_menit',
         'push_up',
         'sit_up',
