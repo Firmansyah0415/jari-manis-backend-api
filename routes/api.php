@@ -62,4 +62,4 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // RUTE BARU: Mengambil Data Rapor Kesehatanku
     Route::get('/rapor', [ZonaController::class, 'getRapor']);
-}); // <--- INI ADALAH PENUTUP SANCTUM
+});

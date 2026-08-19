@@ -36,13 +36,11 @@ class User extends Authenticatable
         ];
     }
 
-    // Tambahkan relasi ini di bawah
     public function preTest()
     {
         return $this->hasOne(PreTest::class);
     }
 
-    // --- TAMBAHKAN KODE INI ---
     public function postTest()
     {
         return $this->hasOne(PostTest::class);
@@ -103,12 +101,17 @@ class User extends Authenticatable
 
         // KITA GUNAKAN RELASI YANG SUDAH ADA DI ATAS CLASS (Lebih Cepat & Aman di Server)
         $skorPreTest = $this->preTest()->sum('skor');
+        $skorPostTest = $this->postTest()->sum('skor'); // <-- TAMBAHAN 1: Post-Test Akademik
+
         $skorRecall = $this->recallMakanan()->sum('skor_total');
         $skorFisik = $this->aktivitasFisik()->sum('skor');
         $skorTtd = $this->minumTtd()->sum('skor');
         $skorHygiene = $this->personalHygiene()->sum('skor_total');
 
-        return $skorPreTest + $skorRecall + $skorFisik + $skorTtd + $skorHygiene;
+        $skorKebugaran = $this->tesKebugaran()->sum('total_skor'); // <-- TAMBAHAN 2: Kebugaran (Otomatis menjumlahkan Pre & Post)
+
+        // Totalkan semuanya
+        return $skorPreTest + $skorPostTest + $skorRecall + $skorFisik + $skorTtd + $skorHygiene + $skorKebugaran;
     }
 
     public function getTotalHariAktifAttribute()
@@ -125,7 +128,6 @@ class User extends Authenticatable
         return $this->postTest()->exists();
     }
 
-    // 2. Tambahkan 2 fungsi baru ini di PALING BAWAH sebelum tanda kurung tutup "}"
     public function getIsPreTestKebugaranDoneAttribute()
     {
         if ($this->role !== 'siswa') return false;

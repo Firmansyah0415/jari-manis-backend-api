@@ -5,51 +5,36 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
     public function getDashboardData(Request $request)
     {
-        // 1. Validasi Keamanan (Hanya Admin)
         $admin = $request->user();
         if ($admin->role !== 'admin') {
             return response()->json(['message' => 'Akses ditolak. Hanya untuk Super Admin.'], 403);
         }
 
-        // 2. Tangkap parameter filter (jika Admin memilih sekolah atau kelas tertentu)
         $sekolahId = $request->query('sekolah_id');
         $kelasId = $request->query('kelas_id');
 
-        // 3. Tarik Data Siswa dengan Relasinya
         $siswaQuery = User::with(['kelas', 'sekolah'])->where('role', 'siswa');
 
-        // Terapkan filter jika Admin menggunakan dropdown
-        if ($sekolahId) {
-            $siswaQuery->where('sekolah_id', $sekolahId);
-        }
-        if ($kelasId) {
-            $siswaQuery->where('kelas_id', $kelasId);
-        }
+        if ($sekolahId) $siswaQuery->where('sekolah_id', $sekolahId);
+        if ($kelasId) $siswaQuery->where('kelas_id', $kelasId);
 
-        // Eksekusi query untuk mendapatkan koleksi data siswa
         $siswaList = $siswaQuery->get();
-
-        // 4. Hitung Statistik
         $totalSiswa = $siswaList->count();
 
-        // Hitung Total Guru (Sesuaikan dengan filter sekolah jika ada)
         $guruQuery = User::where('role', 'guru');
-        if ($sekolahId) {
-            $guruQuery->where('sekolah_id', $sekolahId);
-        }
+        if ($sekolahId) $guruQuery->where('sekolah_id', $sekolahId);
         $totalGuru = $guruQuery->count();
 
-        // Hitung rata-rata skor menggunakan accessor 'total_skor' (Collection Sum)
         $totalSkorGlobal = $siswaList->sum('total_skor');
         $rataRataSkor = $totalSiswa > 0 ? round($totalSkorGlobal / $totalSiswa, 1) : 0;
 
-        // 5. Buat Leaderboard Global (Urutkan dari skor tertinggi)
-        // Kita batasi Top 100 agar aplikasi Android tidak berat saat memuat
         $leaderboard = $siswaList->sortByDesc('total_skor')->values()->take(100);
 
         return response()->json([
@@ -65,35 +50,26 @@ class AdminController extends Controller
         ], 200);
     }
 
-
-    // ==========================================
-    // MESIN 1: DAFTAR SELURUH USER (GURU & SISWA)
-    // ==========================================
     public function getDaftarUser(Request $request)
     {
         if ($request->user()->role !== 'admin') {
             return response()->json(['message' => 'Akses ditolak. Hanya untuk Super Admin.'], 403);
         }
 
-        // Tangkap parameter filter
-        $role = $request->query('role'); // 'guru' atau 'siswa'
+        $role = $request->query('role');
         $sekolahId = $request->query('sekolah_id');
         $kelasId = $request->query('kelas_id');
         $dateFrom = $request->query('created_from');
         $dateTo = $request->query('created_to');
 
-        // Tarik data guru dan siswa (kecuali admin itu sendiri)
         $query = User::with(['sekolah', 'kelas'])->whereIn('role', ['guru', 'siswa']);
 
         if ($role) $query->where('role', $role);
         if ($sekolahId) $query->where('sekolah_id', $sekolahId);
         if ($kelasId) $query->where('kelas_id', $kelasId);
-
-        // Filter rentang waktu pendaftaran
         if ($dateFrom) $query->whereDate('created_at', '>=', $dateFrom);
         if ($dateTo) $query->whereDate('created_at', '<=', $dateTo);
 
-        // Urutkan dari yang terbaru mendaftar
         $users = $query->orderBy('created_at', 'desc')->get();
 
         return response()->json([
@@ -103,7 +79,7 @@ class AdminController extends Controller
     }
 
     // ==========================================
-    // MESIN 2: EXPORT DATA PENELITIAN KE CSV
+    // MESIN 2: EXPORT DATA PENELITIAN KE CSV (SUPER MESIN)
     // ==========================================
     public function exportCsv(Request $request)
     {
@@ -111,78 +87,148 @@ class AdminController extends Controller
             return response()->json(['message' => 'Akses ditolak.'], 403);
         }
 
-        // Admin bisa mengekspor semua data, atau memfilternya per sekolah/kelas
-        $sekolahId = $request->query('sekolah_id');
-        $kelasId = $request->query('kelas_id');
+        $tipe = $request->query('tipe', 'induk'); // Default: induk
+        $tanggal = $request->query('tanggal'); // Format: YYYY-MM-DD
 
-        // Tarik data SISWA beserta sekolah & kelas
-        // Kita hapus relasi zona dari sini karena kita akan menghitungnya langsung dari database agar 100% akurat
         $query = User::with(['sekolah', 'kelas'])->where('role', 'siswa');
-
-        if ($sekolahId) $query->where('sekolah_id', $sekolahId);
-        if ($kelasId) $query->where('kelas_id', $kelasId);
-
         $siswas = $query->get();
 
-        // Siapkan Headings / Kolom Tabel sesuai standar SPSS/Excel
-        $columns = [
-            'ID Siswa',
-            'Nama Lengkap',
-            'L/P',
-            'Asal Sekolah',
-            'Kelas',
-            'Skor Pre-Test',
-            'Total Skor Recall Makanan',
-            'Total Skor Aktivitas Fisik',
-            'Total Skor TTD',
-            'Total Skor Hygiene',
-            'Skor Post-Test',
-            'TOTAL SKOR KESELURUHAN',
-            'Total Hari Aktif',
-            'Tanggal Mendaftar'
-        ];
+        $fileName = "JariManis_" . ucfirst($tipe) . "_" . date('Ymd_His') . ".csv";
 
-        // Buat file CSV secara dinamis (Streaming) agar tidak membebani RAM Server
-        $callback = function () use ($siswas, $columns) {
+        $callback = function () use ($siswas, $tipe, $tanggal) {
             $file = fopen('php://output', 'w');
-            fputcsv($file, $columns); // Tulis baris pertama (Judul Kolom)
 
-            foreach ($siswas as $siswa) {
-                // Kalkulasi menembak LANGSUNG ke Database agar dijamin 100% akurat dan update
-                $skorPreTest = \App\Models\PreTest::where('user_id', $siswa->id)->sum('skor');
-                $skorPostTest = \App\Models\PostTest::where('user_id', $siswa->id)->sum('skor');
-
-                $skorRecall = \App\Models\RecallMakanan::where('user_id', $siswa->id)->sum('skor_total');
-                $skorFisik = \App\Models\AktivitasFisik::where('user_id', $siswa->id)->sum('skor');
-                $skorTtd = \App\Models\MinumTtd::where('user_id', $siswa->id)->sum('skor');
-                $skorHygiene = \App\Models\PersonalHygiene::where('user_id', $siswa->id)->sum('skor_total');
-
-                // Susun data per baris sesuai urutan judul kolom
-                $row = [
-                    $siswa->id,
-                    $siswa->name,
-                    $siswa->gender,
-                    $siswa->sekolah ? $siswa->sekolah->nama : '-',
-                    $siswa->kelas ? $siswa->kelas->nama_kelas : '-',
-                    $skorPreTest,
-                    $skorRecall,
-                    $skorFisik,
-                    $skorTtd,
-                    $skorHygiene,
-                    $skorPostTest,
-                    $siswa->total_skor, // Memanggil accessor dari User.php
-                    $siswa->total_hari_aktif, // Memanggil accessor dari User.php
-                    $siswa->created_at->format('d/m/Y')
-                ];
-                fputcsv($file, $row); // Tulis baris data
+            // --- 1. TIPE: INDUK SISWA (OVERVIEW) ---
+            if ($tipe === 'induk') {
+                fputcsv($file, ['ID Siswa', 'Nama Lengkap', 'L/P', 'Asal Sekolah', 'Kelas', 'Total Hari Aktif', 'Total Skor Keseluruhan', 'Tanggal Mendaftar']);
+                foreach ($siswas as $siswa) {
+                    fputcsv($file, [
+                        $siswa->id,
+                        $siswa->name,
+                        $siswa->gender,
+                        $siswa->sekolah ? $siswa->sekolah->nama : '-',
+                        $siswa->kelas ? $siswa->kelas->nama_kelas : '-',
+                        $siswa->total_hari_aktif,
+                        $siswa->total_skor,
+                        $siswa->created_at->format('d/m/Y')
+                    ]);
+                }
             }
+            // --- 2. TIPE: AKADEMIK & KEBUGARAN (PRE/POST) ---
+            elseif ($tipe === 'kebugaran') {
+                fputcsv($file, ['ID Siswa', 'Nama Lengkap', 'Skor Pengetahuan (Pre)', 'Skor Pengetahuan (Post)', 'Lari 12M (Pre)', 'Lari 12M (Post)', 'Push Up (Pre)', 'Push Up (Post)', 'Sit Up (Pre)', 'Sit Up (Post)', 'Pull Up (Pre)', 'Pull Up (Post)', 'Shuttle Run (Pre)', 'Shuttle Run (Post)', 'Total Skor Kebugaran (Pre)', 'Total Skor Kebugaran (Post)', 'Kategori Kebugaran (Pre)', 'Kategori Kebugaran (Post)']);
+                foreach ($siswas as $siswa) {
+                    $preAkad = \App\Models\PreTest::where('user_id', $siswa->id)->sum('skor');
+                    $postAkad = \App\Models\PostTest::where('user_id', $siswa->id)->sum('skor');
+
+                    $preBugar = \App\Models\TesKebugaran::where('user_id', $siswa->id)->where('kategori', 'pre_test')->first();
+                    $postBugar = \App\Models\TesKebugaran::where('user_id', $siswa->id)->where('kategori', 'post_test')->first();
+
+                    fputcsv($file, [
+                        $siswa->id,
+                        $siswa->name,
+                        $preAkad,
+                        $postAkad,
+                        $preBugar->lari_12_menit ?? '-',
+                        $postBugar->lari_12_menit ?? '-',
+                        $preBugar->push_up ?? '-',
+                        $postBugar->push_up ?? '-',
+                        $preBugar->sit_up ?? '-',
+                        $postBugar->sit_up ?? '-',
+                        $preBugar->pull_up_chining ?? '-',
+                        $postBugar->pull_up_chining ?? '-',
+                        $preBugar->shuttle_run ?? '-',
+                        $postBugar->shuttle_run ?? '-',
+                        $preBugar->total_skor ?? '-',
+                        $postBugar->total_skor ?? '-',
+                        $preBugar->kategori_hasil ?? '-',
+                        $postBugar->kategori_hasil ?? '-'
+                    ]);
+                }
+            }
+            // --- 3. TIPE: LOG HARIAN (ZONA 2,3,4) ---
+            elseif ($tipe === 'harian') {
+                fputcsv($file, ['ID Siswa', 'Nama Lengkap', 'Tanggal Data', 'Z2: Nama Aktivitas Fisik', 'Z2: Durasi (Menit)', 'Z2: Kategori', 'Z3: Sudah Minum TTD?', 'Z4: Mandi 2x Sehari', 'Z4: Pakai Sabun', 'Z4: Sikat Gigi Pagi', 'Z4: Sikat Gigi Malam', 'Z4: Cuci Tangan Sblm Makan', 'Z4: Cuci Tangan Sth BAB', 'Z4: Pakai Alas Kaki', 'Z4: Pakaian Bersih', 'Z4: Handuk Bersih', 'Z4: Cuci Tangan dr Luar', 'Z4: Skor Total Hygiene', 'Z4: Kategori Hygiene']);
+                foreach ($siswas as $siswa) {
+                    $qFisik = \App\Models\AktivitasFisik::where('user_id', $siswa->id);
+                    $qTtd = \App\Models\MinumTtd::where('user_id', $siswa->id);
+                    $qHygiene = \App\Models\PersonalHygiene::where('user_id', $siswa->id);
+
+                    if ($tanggal) {
+                        $qFisik->whereDate('created_at', $tanggal);
+                        $qTtd->where('tanggal_minum', $tanggal);
+                        $qHygiene->where('tanggal', $tanggal);
+                    }
+
+                    $fisik = $qFisik->first();
+                    $ttd = $qTtd->first();
+                    $hygiene = $qHygiene->first();
+
+                    fputcsv($file, [
+                        $siswa->id,
+                        $siswa->name,
+                        $tanggal ?? 'Semua',
+                        $fisik->nama_aktivitas ?? '-',
+                        $fisik->durasi_menit ?? '-',
+                        $fisik->kategori ?? '-',
+                        isset($ttd) ? ($ttd->sudah_minum ? 'Ya' : 'Tidak') : '-',
+                        isset($hygiene) ? ($hygiene->mandi_2x_sehari ? 'Ya' : 'Tidak') : '-',
+                        isset($hygiene) ? ($hygiene->pakai_sabun ? 'Ya' : 'Tidak') : '-',
+                        isset($hygiene) ? ($hygiene->sikat_gigi_pagi ? 'Ya' : 'Tidak') : '-',
+                        isset($hygiene) ? ($hygiene->sikat_gigi_malam ? 'Ya' : 'Tidak') : '-',
+                        isset($hygiene) ? ($hygiene->cuci_tangan_sebelum_makan ? 'Ya' : 'Tidak') : '-',
+                        isset($hygiene) ? ($hygiene->cuci_tangan_setelah_bab ? 'Ya' : 'Tidak') : '-',
+                        isset($hygiene) ? ($hygiene->pakai_alas_kaki ? 'Ya' : 'Tidak') : '-',
+                        isset($hygiene) ? ($hygiene->pakai_pakaian_bersih ? 'Ya' : 'Tidak') : '-',
+                        isset($hygiene) ? ($hygiene->handuk_pribadi_bersih ? 'Ya' : 'Tidak') : '-',
+                        isset($hygiene) ? ($hygiene->cuci_tangan_luar_rumah ? 'Ya' : 'Tidak') : '-',
+                        $hygiene->skor_total ?? '-',
+                        $hygiene->kategori ?? '-'
+                    ]);
+                }
+            }
+            // --- 4. TIPE: RECALL MAKANAN (ZONA 1) ---
+            elseif ($tipe === 'recall') {
+                fputcsv($file, ['ID Siswa', 'Nama Lengkap', 'Tanggal Data', 'Skor Total Recall', 'Kategori Kalori', 'Detail Makanan Konsumsi (Dipisahkan Garis)']);
+                foreach ($siswas as $siswa) {
+                    $qRecall = \App\Models\RecallMakanan::where('user_id', $siswa->id);
+                    if ($tanggal) {
+                        $qRecall->whereDate('created_at', $tanggal);
+                    }
+                    $recalls = $qRecall->get();
+
+                    if ($recalls->isEmpty()) {
+                        fputcsv($file, [$siswa->id, $siswa->name, $tanggal ?? '-', '-', '-', 'Tidak ada data pengisian di tanggal ini']);
+                    } else {
+                        foreach ($recalls as $recall) {
+                            $detailArr = is_string($recall->detail_jawaban) ? json_decode($recall->detail_jawaban, true) : $recall->detail_jawaban;
+                            $detailStr = [];
+                            if (is_array($detailArr)) {
+                                foreach ($detailArr as $key => $val) {
+                                    $detailStr[] = "$key: $val";
+                                }
+                            }
+                            $formattedDetail = implode(" | ", $detailStr);
+
+                            fputcsv($file, [
+                                $siswa->id,
+                                $siswa->name,
+                                $recall->created_at->format('Y-m-d'),
+                                $recall->skor_total ?? '-',
+                                $recall->kategori ?? '-',
+                                $formattedDetail
+                            ]);
+                        }
+                    }
+                }
+            }
+
             fclose($file);
         };
 
-        // Header agar file yang terdownload dikenali sebagai CSV
         $headers = [
             "Content-type"        => "text/csv",
-            "Content-Disposition" => "attachment; filename=Data_Penelitian_JariManis.csv",
+            "Content-Disposition" => "attachment; filename=$fileName",
             "Pragma"              => "no-cache",
             "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
             "Expires"             => "0"
@@ -198,43 +244,35 @@ class AdminController extends Controller
     {
         $admin = $request->user();
 
-        // 1. Validasi Akses Admin
         if ($admin->role !== 'admin') {
             return response()->json(['message' => 'Akses ditolak.'], 403);
         }
 
-        // 2. Validasi input password admin
         $request->validate([
             'admin_password' => 'required|string'
         ], [
             'admin_password.required' => 'Password admin wajib diisi untuk verifikasi keamanan.'
         ]);
 
-        // 3. Cek kebenaran password admin
-        if (!\Illuminate\Support\Facades\Hash::check($request->admin_password, $admin->password)) {
+        if (!Hash::check($request->admin_password, $admin->password)) {
             return response()->json(['message' => 'Password Admin salah! Penghapusan dibatalkan.'], 401);
         }
 
-        // 4. Cari target user yang mau dihapus
         $targetUser = User::find($id);
         if (!$targetUser) {
             return response()->json(['message' => 'User tidak ditemukan.'], 404);
         }
 
-        // 5. Cegah admin menghapus dirinya sendiri
         if ($targetUser->id === $admin->id) {
             return response()->json(['message' => 'Anda tidak bisa menghapus akun Anda sendiri.'], 400);
         }
 
-        // --- PERBAIKAN: 6. HAPUS FOTO PROFIL FISIK DARI STORAGE ---
         if ($targetUser->foto_profil) {
-            // Mengecek dan menghapus file dari folder storage/app/public/profil
-            if (\Illuminate\Support\Facades\Storage::disk('public')->exists('profil/' . $targetUser->foto_profil)) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete('profil/' . $targetUser->foto_profil);
+            if (Storage::disk('public')->exists('profil/' . $targetUser->foto_profil)) {
+                Storage::disk('public')->delete('profil/' . $targetUser->foto_profil);
             }
         }
 
-        // 7. BERSIH TOTAL: Hapus paksa semua data relasi di tabel Zona
         \App\Models\PreTest::where('user_id', $targetUser->id)->delete();
         \App\Models\PostTest::where('user_id', $targetUser->id)->delete();
         \App\Models\RecallMakanan::where('user_id', $targetUser->id)->delete();
@@ -243,7 +281,6 @@ class AdminController extends Controller
         \App\Models\PersonalHygiene::where('user_id', $targetUser->id)->delete();
         \App\Models\TesKebugaran::where('user_id', $targetUser->id)->delete();
 
-        // 8. Terakhir, hapus akun utama User-nya
         $targetUser->delete();
 
         return response()->json(['message' => 'User beserta seluruh data dan fotonya berhasil dihapus permanen.'], 200);

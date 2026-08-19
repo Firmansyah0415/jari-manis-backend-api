@@ -67,9 +67,9 @@ class GuruController extends Controller
             'message' => 'Berhasil mengambil detail rapor siswa',
             'data' => [
                 'user' => $siswa,
-                'tanggal_filter' => $tanggal, // <--- BARU
+                'tanggal_filter' => $tanggal,
                 'pre_test' => $preTest,
-                'post_test' => $postTest,     // <--- BARU
+                'post_test' => $postTest,
                 'recall_makanan' => $recall,
                 'aktivitas_fisik' => $fisik,
                 'minum_ttd' => $ttd,
@@ -93,9 +93,6 @@ class GuruController extends Controller
             ->with(['kelas'])
             ->get();
 
-        // 2 & 3. Karena di User.php kita sudah membuat Accessor getTotalSkorAttribute,
-        // variabel 'total_skor' sudah OTOMATIS menempel di setiap data siswa!
-        // Kita cukup mengurutkannya saja dari yang terbesar ke terkecil. Sangat hemat kode!
         $sortedSiswa = $siswaList->sortByDesc('total_skor')->values();
 
         return response()->json([
