@@ -101,14 +101,15 @@ class User extends Authenticatable
 
         // KITA GUNAKAN RELASI YANG SUDAH ADA DI ATAS CLASS (Lebih Cepat & Aman di Server)
         $skorPreTest = $this->preTest()->sum('skor');
-        $skorPostTest = $this->postTest()->sum('skor'); // <-- TAMBAHAN 1: Post-Test Akademik
+        $skorPostTest = $this->postTest()->sum('skor');
 
         $skorRecall = $this->recallMakanan()->sum('skor_total');
         $skorFisik = $this->aktivitasFisik()->sum('skor');
         $skorTtd = $this->minumTtd()->sum('skor');
         $skorHygiene = $this->personalHygiene()->sum('skor_total');
 
-        $skorKebugaran = $this->tesKebugaran()->sum('total_skor'); // <-- TAMBAHAN 2: Kebugaran (Otomatis menjumlahkan Pre & Post)
+        // --- INI YANG DIPERBAIKI (total_skor -> skor_total) ---
+        $skorKebugaran = $this->tesKebugaran()->sum('skor_total');
 
         // Totalkan semuanya
         return $skorPreTest + $skorPostTest + $skorRecall + $skorFisik + $skorTtd + $skorHygiene + $skorKebugaran;
