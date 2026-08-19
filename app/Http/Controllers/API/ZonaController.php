@@ -196,6 +196,24 @@ class ZonaController extends Controller
     }
 
     // ==========================================
+    // MENGAMBIL DATA MINUM TTD (UNTUK EDIT/VIEW)
+    // ==========================================
+    public function getMinumTtd(Request $request)
+    {
+        // Catatan: Kolom di tabel TTD bernama 'tanggal_minum', bukan 'tanggal'
+        $tanggal = $request->query('tanggal', date('Y-m-d'));
+
+        $ttd = MinumTtd::where('user_id', $request->user()->id)
+            ->where('tanggal_minum', $tanggal)
+            ->first();
+
+        return response()->json([
+            'message' => 'Berhasil mengambil data Minum TTD',
+            'data' => $ttd // Akan bernilai null jika belum mengisi
+        ], 200);
+    }
+
+    // ==========================================
     // 5. ZONA PERSONAL HYGIENE
     // ==========================================
     public function storePersonalHygiene(Request $request)
@@ -257,6 +275,22 @@ class ZonaController extends Controller
         return response()->json(['message' => 'Data Personal Hygiene berhasil disimpan', 'data' => $hygiene], 201);
     }
 
+    // ==========================================
+    // MENGAMBIL DATA PERSONAL HYGIENE (UNTUK EDIT/VIEW)
+    // ==========================================
+    public function getPersonalHygiene(Request $request)
+    {
+        $tanggal = $request->query('tanggal', date('Y-m-d'));
+
+        $hygiene = PersonalHygiene::where('user_id', $request->user()->id)
+            ->where('tanggal', $tanggal)
+            ->first();
+
+        return response()->json([
+            'message' => 'Berhasil mengambil data Personal Hygiene',
+            'data' => $hygiene // Akan bernilai null jika belum mengisi
+        ], 200);
+    }
 
     /**
      * Mengambil data akumulasi 4 Zona + Pre-Test & Post-Test milik pengguna
