@@ -9,6 +9,7 @@ use App\Models\RecallMakanan;
 use App\Models\AktivitasFisik;
 use App\Models\MinumTtd;
 use App\Models\PersonalHygiene;
+use App\Models\TesKebugaran;
 
 class ZonaController extends Controller
 {
@@ -266,6 +267,7 @@ class ZonaController extends Controller
     {
         $request->validate([
             'tipe_tes' => 'required|in:pre,post',
+            'tanggal' => 'required|date',
             'lari_12_menit' => 'nullable|numeric',
             'push_up' => 'nullable|integer',
             'sit_up' => 'nullable|integer',
@@ -357,12 +359,13 @@ class ZonaController extends Controller
         else $kategori = 'Sangat Kurang';
 
         // 6. SIMPAN KE DATABASE (Tabel `tes_kebugarans`)
-        $tes = \App\Models\TesKebugaran::updateOrCreate(
+        $tes = TesKebugaran::updateOrCreate(
             [
                 'user_id' => $user->id,
                 'tipe_tes' => $request->tipe_tes // 'pre' atau 'post'
             ],
             [
+                'tanggal' => $request->tanggal,
                 'lari_12_menit' => $request->lari_12_menit,
                 'push_up' => $request->push_up,
                 'sit_up' => $request->sit_up,

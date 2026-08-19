@@ -86,7 +86,13 @@ class User extends Authenticatable
     }
 
     // 1. Beritahu Laravel untuk selalu menyertakan kolom buatan 'total_skor' saat API dipanggil
-    protected $appends = ['total_skor', 'total_hari_aktif', 'is_post_test_done'];
+    protected $appends = [
+        'total_skor',
+        'total_hari_aktif',
+        'is_post_test_done',
+        'is_pre_test_kebugaran_done',
+        'is_post_test_kebugaran_done'
+    ];
 
     // 2. Buat fungsi rumus perhitungannya
     public function getTotalSkorAttribute()
@@ -117,5 +123,18 @@ class User extends Authenticatable
         if ($this->role !== 'siswa') return false;
 
         return $this->postTest()->exists();
+    }
+
+    // 2. Tambahkan 2 fungsi baru ini di PALING BAWAH sebelum tanda kurung tutup "}"
+    public function getIsPreTestKebugaranDoneAttribute()
+    {
+        if ($this->role !== 'siswa') return false;
+        return $this->tesKebugaran()->where('tipe_tes', 'pre')->exists();
+    }
+
+    public function getIsPostTestKebugaranDoneAttribute()
+    {
+        if ($this->role !== 'siswa') return false;
+        return $this->tesKebugaran()->where('tipe_tes', 'post')->exists();
     }
 }
