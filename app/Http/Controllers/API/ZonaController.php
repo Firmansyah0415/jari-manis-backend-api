@@ -86,6 +86,23 @@ class ZonaController extends Controller
     }
 
     // ==========================================
+    // MENGAMBIL DATA RECALL MAKANAN (UNTUK EDIT/VIEW)
+    // ==========================================
+    public function getRecallMakanan(Request $request)
+    {
+        $tanggal = $request->query('tanggal', date('Y-m-d'));
+
+        $recall = RecallMakanan::where('user_id', $request->user()->id)
+            ->where('tanggal', $tanggal)
+            ->first();
+
+        return response()->json([
+            'message' => 'Berhasil mengambil data Recall Makanan',
+            'data' => $recall // Akan bernilai null jika belum pernah mengisi di tanggal tsb
+        ], 200);
+    }
+
+    // ==========================================
     // 3. ZONA AKTIVITAS FISIK
     // ==========================================
     public function storeAktivitasFisik(Request $request)

@@ -18,7 +18,7 @@ class RecallMakanan extends Model
     ];
 
     protected $casts = [
-        'detail_jawaban' => 'array', // Otomatis mengubah array PHP ke JSON Database
+        'detail_jawaban' => 'array',
     ];
 
     public function user()
