@@ -152,6 +152,23 @@ class ZonaController extends Controller
     }
 
     // ==========================================
+    // MENGAMBIL DATA AKTIVITAS FISIK (UNTUK EDIT/VIEW)
+    // ==========================================
+    public function getAktivitasFisik(Request $request)
+    {
+        $tanggal = $request->query('tanggal', date('Y-m-d'));
+
+        $aktivitas = AktivitasFisik::where('user_id', $request->user()->id)
+            ->where('tanggal', $tanggal)
+            ->first();
+
+        return response()->json([
+            'message' => 'Berhasil mengambil data Aktivitas Fisik',
+            'data' => $aktivitas // Akan bernilai null jika belum mengisi di tanggal tsb
+        ], 200);
+    }
+
+    // ==========================================
     // 4. ZONA MINUM TTD
     // ==========================================
     public function storeMinumTtd(Request $request)

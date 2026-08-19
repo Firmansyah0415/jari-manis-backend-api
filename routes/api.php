@@ -52,6 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/recall-makanan', [ZonaController::class, 'storeRecallMakanan']);
     Route::get('/recall-makanan', [ZonaController::class, 'getRecallMakanan']);
     Route::post('/aktivitas-fisik', [ZonaController::class, 'storeAktivitasFisik']);
+    Route::get('/aktivitas-fisik', [ZonaController::class, 'getAktivitasFisik']);
     Route::post('/minum-ttd', [ZonaController::class, 'storeMinumTtd']);
     Route::post('/personal-hygiene', [ZonaController::class, 'storePersonalHygiene']);
     Route::get('/leaderboard-fisik', [ZonaController::class, 'getLeaderboardAktivitasFisik']);
