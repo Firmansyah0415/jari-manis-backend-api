@@ -388,6 +388,26 @@ class ZonaController extends Controller
     }
 
     // ==========================================
+    // MENGAMBIL DATA TES KEBUGARAN (UNTUK EDIT/VIEW)
+    // ==========================================
+    public function getTesKebugaran(Request $request, $tipe_tes)
+    {
+        // Validasi tipe tes hanya boleh 'pre' atau 'post'
+        if (!in_array($tipe_tes, ['pre', 'post'])) {
+            return response()->json(['message' => 'Tipe tes tidak valid'], 400);
+        }
+
+        $tes = TesKebugaran::where('user_id', $request->user()->id)
+            ->where('tipe_tes', $tipe_tes)
+            ->first();
+
+        return response()->json([
+            'message' => 'Berhasil mengambil data tes kebugaran',
+            'data' => $tes // Akan bernilai null jika belum pernah mengisi
+        ], 200);
+    }
+
+    // ==========================================
     // FITUR BARU: LEADERBOARD AKTIVITAS FISIK
     // ==========================================
     public function getLeaderboardAktivitasFisik(Request $request)
