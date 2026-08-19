@@ -43,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'getDashboardData']);
     Route::get('/admin/users', [AdminController::class, 'getDaftarUser']);
     Route::get('/admin/export-csv', [AdminController::class, 'exportCsv']);
+    Route::delete('/admin/users/{id}', [AdminController::class, 'deleteUser']);
 
     // ENDPOINT MVP JARI MANIS (4 ZONA + PRE-TEST)
     Route::post('/pre-test', [ZonaController::class, 'storePreTest']);

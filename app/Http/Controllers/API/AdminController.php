@@ -190,4 +190,62 @@ class AdminController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+
+    // ==========================================
+    // MESIN 3: HAPUS USER & SEMUA DATANYA
+    // ==========================================
+    public function deleteUser(Request $request, $id)
+    {
+        $admin = $request->user();
+
+        // 1. Validasi Akses Admin
+        if ($admin->role !== 'admin') {
+            return response()->json(['message' => 'Akses ditolak.'], 403);
+        }
+
+        // 2. Validasi input password admin
+        $request->validate([
+            'admin_password' => 'required|string'
+        ], [
+            'admin_password.required' => 'Password admin wajib diisi untuk verifikasi keamanan.'
+        ]);
+
+        // 3. Cek kebenaran password admin
+        if (!\Illuminate\Support\Facades\Hash::check($request->admin_password, $admin->password)) {
+            return response()->json(['message' => 'Password Admin salah! Penghapusan dibatalkan.'], 401);
+        }
+
+        // 4. Cari target user yang mau dihapus
+        $targetUser = User::find($id);
+        if (!$targetUser) {
+            return response()->json(['message' => 'User tidak ditemukan.'], 404);
+        }
+
+        // 5. Cegah admin menghapus dirinya sendiri
+        if ($targetUser->id === $admin->id) {
+            return response()->json(['message' => 'Anda tidak bisa menghapus akun Anda sendiri.'], 400);
+        }
+
+        // --- PERBAIKAN: 6. HAPUS FOTO PROFIL FISIK DARI STORAGE ---
+        if ($targetUser->foto_profil) {
+            // Mengecek dan menghapus file dari folder storage/app/public/profil
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists('profil/' . $targetUser->foto_profil)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete('profil/' . $targetUser->foto_profil);
+            }
+        }
+
+        // 7. BERSIH TOTAL: Hapus paksa semua data relasi di tabel Zona
+        \App\Models\PreTest::where('user_id', $targetUser->id)->delete();
+        \App\Models\PostTest::where('user_id', $targetUser->id)->delete();
+        \App\Models\RecallMakanan::where('user_id', $targetUser->id)->delete();
+        \App\Models\AktivitasFisik::where('user_id', $targetUser->id)->delete();
+        \App\Models\MinumTtd::where('user_id', $targetUser->id)->delete();
+        \App\Models\PersonalHygiene::where('user_id', $targetUser->id)->delete();
+        \App\Models\TesKebugaran::where('user_id', $targetUser->id)->delete();
+
+        // 8. Terakhir, hapus akun utama User-nya
+        $targetUser->delete();
+
+        return response()->json(['message' => 'User beserta seluruh data dan fotonya berhasil dihapus permanen.'], 200);
+    }
 }
