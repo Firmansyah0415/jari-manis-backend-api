@@ -26,6 +26,20 @@ class PersonalHygiene extends Model
         'kategori'
     ];
 
+    // --- TAMBAHKAN INI AGAR LARAVEL MENGIRIM TRUE/FALSE BUKAN 1/0 ---
+    protected $casts = [
+        'mandi_2x_sehari' => 'boolean',
+        'pakai_sabun' => 'boolean',
+        'sikat_gigi_pagi' => 'boolean',
+        'sikat_gigi_malam' => 'boolean',
+        'cuci_tangan_sebelum_makan' => 'boolean',
+        'cuci_tangan_setelah_bab' => 'boolean',
+        'pakai_alas_kaki' => 'boolean',
+        'pakai_pakaian_bersih' => 'boolean',
+        'handuk_pribadi_bersih' => 'boolean',
+        'cuci_tangan_luar_rumah' => 'boolean',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);

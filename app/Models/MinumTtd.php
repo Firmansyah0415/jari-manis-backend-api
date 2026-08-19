@@ -16,6 +16,11 @@ class MinumTtd extends Model
         'skor'
     ];
 
+    // --- TAMBAHKAN INI AGAR LARAVEL MENGIRIM TRUE/FALSE BUKAN 1/0 ---
+    protected $casts = [
+        'sudah_minum' => 'boolean',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);
