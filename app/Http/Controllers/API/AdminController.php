@@ -220,8 +220,10 @@ class AdminController extends Controller
                 fputcsv($file, ['ID Siswa', 'Nama Lengkap', 'Tanggal Data', 'Skor Total Recall', 'Kategori Kalori', 'Detail Makanan Konsumsi (Dipisahkan Garis)']);
                 foreach ($siswas as $siswa) {
                     $qRecall = \App\Models\RecallMakanan::where('user_id', $siswa->id);
+
                     if ($tanggal) {
-                        $qRecall->whereDate('created_at', $tanggal);
+                        // --- PERBAIKAN 1: Filter menggunakan kolom 'tanggal' ---
+                        $qRecall->where('tanggal', $tanggal);
                     }
                     $recalls = $qRecall->get();
 
@@ -241,7 +243,8 @@ class AdminController extends Controller
                             fputcsv($file, [
                                 $siswa->id,
                                 $siswa->name,
-                                $recall->created_at->format('Y-m-d'),
+                                // --- PERBAIKAN 2: Cetak menggunakan kolom 'tanggal' ---
+                                $recall->tanggal,
                                 $recall->skor_total ?? '-',
                                 $recall->kategori ?? '-',
                                 $formattedDetail
