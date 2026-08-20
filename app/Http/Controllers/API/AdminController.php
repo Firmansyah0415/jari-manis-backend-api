@@ -139,10 +139,10 @@ class AdminController extends Controller
                         $postBugar->pull_up_chining ?? '-',
                         $preBugar->shuttle_run ?? '-',
                         $postBugar->shuttle_run ?? '-',
-                        $preBugar->total_skor ?? '-',
-                        $postBugar->total_skor ?? '-',
-                        $preBugar->kategori_hasil ?? '-',
-                        $postBugar->kategori_hasil ?? '-'
+                        $preBugar->skor_total ?? '-',
+                        $postBugar->skor_total ?? '-',
+                        $preBugar->kategori ?? '-',
+                        $postBugar->kategori ?? '-'
                     ]);
                 }
             }
