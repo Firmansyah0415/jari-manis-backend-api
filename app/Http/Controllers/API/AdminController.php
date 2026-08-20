@@ -183,7 +183,7 @@ class AdminController extends Controller
                     $qHygiene = \App\Models\PersonalHygiene::where('user_id', $siswa->id);
 
                     if ($tanggal) {
-                        $qFisik->whereDate('created_at', $tanggal);
+                        $qFisik->where('tanggal', $tanggal);
                         $qTtd->where('tanggal_minum', $tanggal);
                         $qHygiene->where('tanggal', $tanggal);
                     }
