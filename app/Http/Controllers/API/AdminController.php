@@ -116,7 +116,30 @@ class AdminController extends Controller
             }
             // --- 2. TIPE: AKADEMIK & KEBUGARAN (PRE/POST) ---
             elseif ($tipe === 'kebugaran') {
-                fputcsv($file, ['ID Siswa', 'Nama Lengkap', 'Skor Pengetahuan (Pre)', 'Skor Pengetahuan (Post)', 'Lari 12M (Pre)', 'Lari 12M (Post)', 'Push Up (Pre)', 'Push Up (Post)', 'Sit Up (Pre)', 'Sit Up (Post)', 'Pull Up (Pre)', 'Pull Up (Post)', 'Shuttle Run (Pre)', 'Shuttle Run (Post)', 'Total Skor Kebugaran (Pre)', 'Total Skor Kebugaran (Post)', 'Kategori Kebugaran (Pre)', 'Kategori Kebugaran (Post)']);
+                // 1. Tambahkan 2 Header Kolom Tanggal di sini
+                fputcsv($file, [
+                    'ID Siswa',
+                    'Nama Lengkap',
+                    'Skor Pengetahuan (Pre)',
+                    'Skor Pengetahuan (Post)',
+                    'Tanggal Kebugaran (Pre)',
+                    'Tanggal Kebugaran (Post)',
+                    'Lari 12M (Pre)',
+                    'Lari 12M (Post)',
+                    'Push Up (Pre)',
+                    'Push Up (Post)',
+                    'Sit Up (Pre)',
+                    'Sit Up (Post)',
+                    'Pull Up (Pre)',
+                    'Pull Up (Post)',
+                    'Shuttle Run (Pre)',
+                    'Shuttle Run (Post)',
+                    'Total Skor Kebugaran (Pre)',
+                    'Total Skor Kebugaran (Post)',
+                    'Kategori Kebugaran (Pre)',
+                    'Kategori Kebugaran (Post)'
+                ]);
+
                 foreach ($siswas as $siswa) {
                     $preAkad = \App\Models\PreTest::where('user_id', $siswa->id)->sum('skor');
                     $postAkad = \App\Models\PostTest::where('user_id', $siswa->id)->sum('skor');
@@ -129,6 +152,11 @@ class AdminController extends Controller
                         $siswa->name,
                         $preAkad,
                         $postAkad,
+
+                        // 2. Tarik data kolom 'tanggal' dari database (gunakan ?? '-' jika kosong)
+                        $preBugar->tanggal ?? '-',
+                        $postBugar->tanggal ?? '-',
+
                         $preBugar->lari_12_menit ?? '-',
                         $postBugar->lari_12_menit ?? '-',
                         $preBugar->push_up ?? '-',
